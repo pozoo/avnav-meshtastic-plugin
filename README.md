@@ -49,7 +49,7 @@ This runs `pip3 install -t meshtastic/lib -r requirements.txt` and places the li
 
 ### 4. Install the plugin into AVnav
 
-Copy (or symlink) the `meshtastic/` folder into AVnav's plugin directory:
+Symlink the `meshtastic/` folder into AvNav's plugin directory:
 
 ```bash
 ln -s "$(pwd)/meshtastic" ~/.avnav/plugins/meshtastic
