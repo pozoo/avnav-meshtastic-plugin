@@ -1,10 +1,10 @@
-# Meshtastic AVNav Plugin — Python Dependencies
+# Meshtastic AvNav Plugin — Python Dependencies
 
 ## Overview
 
-The plugin runs inside **AVNav** on **Raspbian Bookworm**. AVNav loads its own Python environment first, then the plugin appends the venv (`/home/pi/meshtastic/env`) to `sys.path` to make the `meshtastic` package available.
+The plugin runs inside **AvNav** on **Raspbian Bookworm**. AvNav loads its own Python environment first, then the plugin appends the venv (`/home/pi/meshtastic/env`) to `sys.path` to make the `meshtastic` package available.
 
-**Important:** Python caches imported modules in `sys.modules`. Any package already imported by AVNav before the plugin runs will **not** be reloaded from the venv, even if a newer version is present there. The system (deb) version takes precedence for those packages.
+**Important:** Python caches imported modules in `sys.modules`. Any package already imported by AvNav before the plugin runs will **not** be reloaded from the venv, even if a newer version is present there. The system (deb) version takes precedence for those packages.
 
 ---
 
@@ -59,7 +59,7 @@ All other third-party packages are indirect dependencies pulled in by `meshtasti
 
 ### Non-critical — deb version too old but working in practice
 
-These packages are already imported by AVNav before the plugin loads. Due to Python's `sys.modules` caching, the system version is used at runtime even though the venv contains newer versions. The plugin currently works despite the version mismatch.
+These packages are already imported by AvNav before the plugin loads. Due to Python's `sys.modules` caching, the system version is used at runtime even though the venv contains newer versions. The plugin currently works despite the version mismatch.
 
 | Package | Deb version | Required | Risk |
 |---|---|---|---|
