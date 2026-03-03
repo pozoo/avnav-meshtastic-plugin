@@ -104,4 +104,4 @@ Send any of these as a plain text message on the configured channel to control t
 
 This project is licensed under the [GNU General Public License v3.0](LICENSE.md).
 
-It depends on the [meshtastic](https://github.com/meshtastic/python) Python library (GPL-3.0) and runs inside [AVnav](https://github.com/wellenvogel/avnav) (MIT).
+It depends on the [meshtastic](https://github.com/meshtastic/python) Python library (GPL-3.0) and runs inside [AvNav](https://github.com/wellenvogel/avnav) (MIT).
