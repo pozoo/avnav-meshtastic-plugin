@@ -1,4 +1,4 @@
-# AVnav Meshtastic Plugin
+# AvNav Meshtastic Plugin
 
 An [AvNav](https://github.com/wellenvogel/avnav) plugin that allows you to monitor your boat using [Meshtastic](https://meshtastic.org) radios. Meshtastic is based on Lora long distance radio transmission that can easily cover a few kilometers. 
 It periodically broadcasts GPS position and environmental telemetry (wind speed and direction, pressure, anchor distance) over the Meshtastic mesh network, and forwards active AVnav alarms as text messages.
