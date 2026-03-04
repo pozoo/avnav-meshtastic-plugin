@@ -35,6 +35,11 @@ override_dh_install:
 	cp -r meshtastic \
 	      debian/avnav-meshtastic-plugin/usr/lib/avnav/plugins/meshtastic
 
+override_dh_strip:
+	# Strip debug symbols from .so files but do NOT generate an automatic
+	# -dbgsym package — debug symbols are not useful for a Python plugin.
+	dh_strip --no-automatic-dbgsym
+
 override_dh_auto_clean:
 	# Wipe the populated lib/ so a fresh build always starts clean.
 	# Preserve the .gitkeep sentinel so git does not complain.
