@@ -47,7 +47,7 @@ cd avnav-meshtastic
 
 This runs `pip3 install -t meshtastic/lib -r requirements.txt` and places the library files directly into `meshtastic/lib/`. It does not install files elsewhere on your computer.
 
-### 4. Install the plugin into AVnav
+### 4. Install the plugin into AvNav
 
 Symlink the `meshtastic/` folder into AvNav's plugin directory:
 
@@ -61,26 +61,26 @@ Or copy it:
 cp -r meshtastic ~/.avnav/plugins/meshtastic
 ```
 
-### 5. Restart AVnav
+### 5. Restart AvNav
 
 ```bash
 sudo systemctl restart avnav
 ```
 
-The plugin should appear on the AVnav status page.
+The plugin should appear on the AvNav status page.
 
 ## Configuration
 
 Plug in your Meshtastic device to a free USB port.
 
-All settings are editable from the AVnav status page under the plugin entry.
+All settings are editable from the AvNav status page under the plugin entry.
 You need to configure the USB port ID to which your device is connected. You can find it by looking at AvNavs USBSerialReader status. It will show a device and try to connect to it but cannot (because its a Meshtastic device). Enter this usbid into the plugin config and restart AvNav. Now the USBSerialReader will ignore this USB port and the plugin can connect to it.
 
 Also remember to change the channel to your private channel number!
 
 | Parameter | Default | Description |
 |---|---|---|
-| `usbid` | `1-2:1.0` | AVnav USB port ID — prevents AVnav treating the device as a NMEA source |
+| `usbid` | `1-2:1.0` | AvNav USB port ID — prevents AvNav treating the device as a NMEA source |
 | `channel` | `0` | Meshtastic channel index for outgoing messages. Change this to a private channel! |
 | `pos_interval` | `60` | Seconds between GPS position broadcasts (0 to disable) |
 | `alarm_interval` | `60` | Seconds between repeated sends of each active alarm (0 to disable) |

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# AVnav Meshtastic Plugin
+# AvNav Meshtastic Plugin
 # Sends GPS telemetry and alarm notifications via a Meshtastic device over USB.
 
 import sys
@@ -12,7 +12,7 @@ import urllib.parse
 
 # Add the lib/ folder next to this file so meshtastic is importable without a
 # system install.  Using append (not insert) so system packages still take
-# priority for everything AVnav already uses.
+# priority for everything AvNav already uses.
 _LIB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib')
 if _LIB_PATH not in sys.path:
     sys.path.append(_LIB_PATH)
@@ -21,7 +21,7 @@ import serial.tools.list_ports as _list_ports
 
 def _port_from_usbid(usbid):
     """
-    Derive the /dev/tty* path from an AVnav USB interface ID (e.g. '1-2:1.0').
+    Derive the /dev/tty* path from an AvNav USB interface ID (e.g. '1-2:1.0').
     Uses pyserial's port listing so no sysfs parsing is needed.
     Returns None if no matching port is found.
     """
@@ -30,7 +30,7 @@ def _port_from_usbid(usbid):
             return port.device
     return None
 
-# Try importing meshtastic — kept deferred so AVnav can still load the plugin
+# Try importing meshtastic — kept deferred so AvNav can still load the plugin
 # and report an error on the status page rather than crashing at import time.
 _MESHTASTIC_AVAILABLE = False
 _MESHTASTIC_IMPORT_ERROR = ''
@@ -51,7 +51,7 @@ except Exception:
     pass
 
 # ---------------------------------------------------------------------------
-# AVnav data key names 
+# AvNav data key names 
 # ---------------------------------------------------------------------------
 AVNAV_LAT       = 'gps.lat'                                         # latitude (degrees)
 AVNAV_LON       = 'gps.lon'                                         # longitude (degrees)
@@ -80,7 +80,7 @@ class Plugin(object):
     @classmethod
     def pluginInfo(cls):
         return {
-            'description': 'Send AVnav GPS telemetry and alarm alerts via Meshtastic over USB',
+            'description': 'Send AvNav GPS telemetry and alarm alerts via Meshtastic over USB',
             'data': []
         }
 
@@ -101,14 +101,14 @@ class Plugin(object):
         self._debug_counter = 0         # incrementing debug counter
         self._port_at_connect = None    # port used when _interface was opened
 
-        # Register editable parameters (visible on AVnav status page).
+        # Register editable parameters (visible on AvNav status page).
         self.api.registerEditableParameters(
             [
                 {
                     'name': 'usbid',
                     'type': 'STRING',
                     'default': '1-2:1.0',
-                    'description': 'AVnav USB port ID (from status page) — prevents AVnav treating device as NMEA source'
+                    'description': 'AvNav USB port ID (from status page) — prevents AvNav treating device as NMEA source'
                 },
                 {
                     'name': 'channel',
@@ -144,7 +144,7 @@ class Plugin(object):
                     'name': 'test_mode',
                     'type': 'BOOLEAN',
                     'default': False,
-                    'description': 'Use hardcoded test values for position and environment instead of live AVnav data'
+                    'description': 'Use hardcoded test values for position and environment instead of live AvNav data'
                 },
             ],
             self._on_config_change
@@ -153,7 +153,7 @@ class Plugin(object):
         # Allow the plugin to be enabled/disabled at runtime.
         self.api.registerRestart(self.stop)
 
-        # Tell AVnav not to treat the Meshtastic USB port as a NMEA serial reader.
+        # Tell AvNav not to treat the Meshtastic USB port as a NMEA serial reader.
         usbid = self.api.getConfigValue('usbid', '1-2:1.0')
         if usbid:
             try:
@@ -167,14 +167,14 @@ class Plugin(object):
     # ------------------------------------------------------------------
 
     def _on_config_change(self, newValues):
-        """Called by AVnav when editable parameters are modified at runtime."""
+        """Called by AvNav when editable parameters are modified at runtime."""
         self.api.saveConfigValues(newValues)
         if 'usbid' in newValues:
             self.api.log("Port/usbid changed — disconnecting for reconnect")
             self._disconnect()
 
     def _get_bool_config(self, name):
-        """Read a BOOLEAN config value — AVnav returns it as a string 'True'/'False'."""
+        """Read a BOOLEAN config value — AvNav returns it as a string 'True'/'False'."""
         val = self.api.getConfigValue(name)
         if isinstance(val, str):
             return val.lower() in ('true', '1', 'yes')
@@ -219,7 +219,7 @@ class Plugin(object):
     # ------------------------------------------------------------------
 
     def _on_usb(self, device_path):
-        """Called by AVnav when the registered USB device appears."""
+        """Called by AvNav when the registered USB device appears."""
         self.api.log("USB device detected at %s", device_path)
         # The run() loop will reconnect automatically on next iteration.
         self._disconnect()
@@ -305,7 +305,7 @@ class Plugin(object):
     _TEST_ANCHOR_DIST_MM = 25000.0    # mm  (~25 m)
 
     def _read_float(self, key, default=0.0):
-        """Safely read a float AVnav value; returns default if key is None or invalid."""
+        """Safely read a float AvNav value; returns default if key is None or invalid."""
         try:
             v = self.api.getSingleValue(key)
             return float(v) if v is not None else default
@@ -313,7 +313,7 @@ class Plugin(object):
             return default
 
     def _read_int(self, key, default=0):
-        """Safely read an int AVnav value; returns default if key is None or invalid."""
+        """Safely read an int AvNav value; returns default if key is None or invalid."""
         try:
             v = self.api.getSingleValue(key)
             return int(float(v)) if v is not None else default
@@ -357,7 +357,7 @@ class Plugin(object):
 
     def _get_value_with_fallback(self, primary, alternate):
         """
-        Read an AVnav value from *primary*; if that returns None and *alternate*
+        Read an AvNav value from *primary*; if that returns None and *alternate*
         is a non-empty string, try *alternate* instead.  Returns None when both
         keys yield nothing.
         """
@@ -368,7 +368,7 @@ class Plugin(object):
 
     def _send_position_packet(self, channel, test_mode=False):
         """
-        Send a Meshtastic POSITION_APP packet from current AVnav GPS data.
+        Send a Meshtastic POSITION_APP packet from current AvNav GPS data.
         All navigation fields (SOG, COG, HDOP, sats, fix quality) are included.
         Returns True on success, False if no GPS fix (live mode) or send failed.
         On send failure the interface is disconnected so the run() loop
@@ -395,7 +395,7 @@ class Plugin(object):
                 return False
             lat  = float(lat)
             lon  = float(lon)
-            # SOG: AVnav gives m/s; firmware Position.ground_speed uses km/h
+            # SOG: AvNav gives m/s; firmware Position.ground_speed uses km/h
             sog_kmh     = self._read_float(AVNAV_SOG,  0.0) * 3.6
             hdt_raw     = self._get_value_with_fallback(AVNAV_HDT, AVNAV_HDT_ALT)
             cog_deg     = float(hdt_raw) if hdt_raw is not None else 0.0
@@ -436,7 +436,7 @@ class Plugin(object):
     def _send_environment_packet(self, channel, test_mode=False):
         """
         Send a Meshtastic TELEMETRY_APP / EnvironmentMetrics packet from
-        current AVnav wind and pressure data.
+        current AvNav wind and pressure data.
         Returns True on success.  Returns False (without disconnecting) if no
         data is available in live mode.  Disconnects and returns False on
         send failure.
@@ -452,7 +452,7 @@ class Plugin(object):
                 wind_ms, wind_dir, gust_ms, pressure, anchor_dist_mm
             )
         else:
-            # Wind speed: AVnav gives knots; EnvironmentMetrics expects m/s
+            # Wind speed: AvNav gives knots; EnvironmentMetrics expects m/s
             KNOTS_TO_MS = 0.5144
             wind_kt_raw = self._get_value_with_fallback(AVNAV_WIND_SPD, AVNAV_WIND_SPD_ALT)
             wind_ms = float(wind_kt_raw) * KNOTS_TO_MS if wind_kt_raw is not None else None
@@ -653,7 +653,7 @@ class Plugin(object):
         self.api.log("Meshtastic bridge plugin stopped")
 
     def stop(self):
-        """Called by AVnav when the plugin is disabled or AVnav is shutting down."""
+        """Called by AvNav when the plugin is disabled or AvNav is shutting down."""
         try:
             from pubsub import pub
             pub.unsubscribe(self._on_message_received, "meshtastic.receive.text")
