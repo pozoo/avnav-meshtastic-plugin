@@ -113,12 +113,6 @@ class Plugin(object):
             'description': 'Seconds between environment telemetry sends (wind/pressure); 0 to disable',
         },
         {
-            'name': 'debug_interval',
-            'type': 'NUMBER',
-            'default': '0',
-            'description': 'Minutes between debug counter messages (0 to disable)',
-        },
-        {
             'name': 'test_mode',
             'type': 'BOOLEAN',
             'default': False,
@@ -146,8 +140,8 @@ class Plugin(object):
         self._alarm_silenced = False         # when True, alarm forwarding is paused
         self._last_telemetry = 0.0      # monotonic timestamp of last telemetry send
         self._last_environment = 0.0    # monotonic timestamp of last environment send
-        self._last_debug_send = 0.0     # monotonic timestamp of last debug counter send
-        self._debug_counter = 0         # incrementing debug counter
+        self._last_debug_send = 0.0     # monotonic timestamp of last test-mode debug send
+        self._debug_counter = 0         # counts debug messages sent in current test session
         self._port_at_connect = None    # port used when _interface was opened
 
         # Register editable parameters (visible on AvNav status page).
@@ -178,6 +172,13 @@ class Plugin(object):
         if 'usbid' in newValues:
             self.api.log("Port/usbid changed — disconnecting for reconnect")
             self._disconnect()
+        # Reset the debug counter whenever test_mode is turned off so a new
+        # test session always starts the counter from 1.
+        if 'test_mode' in newValues:
+            new_test_mode = str(newValues['test_mode']).lower() in ('true', '1', 'yes')
+            if not new_test_mode:
+                self._debug_counter = 0
+                self._last_debug_send = 0.0
 
     @classmethod
     def _default(cls, name):
@@ -211,7 +212,6 @@ class Plugin(object):
         interval      = _int('pos_interval')
         channel       = _int('channel')
         alarm_interval = _int('alarm_interval')
-        debug_mins    = _int('debug_interval')
         env_interval  = _int('env_interval')
         usbid = self.api.getConfigValue('usbid', self._default('usbid')) or self._default('usbid')
         port = _port_from_usbid(usbid)
@@ -221,7 +221,6 @@ class Plugin(object):
             'alarm_interval': max(0, alarm_interval),
             'env_interval':   max(0, env_interval),
             'channel':        max(0, channel),
-            'debug_interval': max(0, debug_mins) * 60,
             'test_mode':      self._get_bool_config('test_mode'),
         }
 
@@ -648,11 +647,13 @@ class Plugin(object):
                     if name not in current_alarms:
                         del self._alarm_last_sent[name]
 
-            # --- Debug counter ---
-            debug_interval = cfg['debug_interval']
-            if debug_interval > 0 and (now - self._last_debug_send) >= debug_interval:
+            # --- Debug counter (active only while test_mode is on) ---
+            # Sends a counter message every 60 s so the mesh link can be
+            # verified without needing real GPS or environment data.
+            _DEBUG_INTERVAL = 60  # seconds
+            if cfg['test_mode'] and (now - self._last_debug_send) >= _DEBUG_INTERVAL:
                 self._debug_counter += 1
-                debug_msg = 'DEBUG: counter=%d' % self._debug_counter
+                debug_msg = 'TEST: counter=%d' % self._debug_counter
                 self.api.log("Sending debug counter: %d", self._debug_counter)
                 if self._send_text(debug_msg, cfg['channel']):
                     self._last_debug_send = now
