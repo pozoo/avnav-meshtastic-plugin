@@ -7,6 +7,7 @@ import os
 import time
 import threading
 import json
+import copy
 import urllib.request
 import urllib.parse
 
@@ -77,6 +78,54 @@ AVNAV_PRESSURE  = 'gps.signalk.environment.outside.pressure'        # Signal K s
 
 class Plugin(object):
 
+    # Single source of truth for all editable parameters and their defaults.
+    # Both registerEditableParameters() and _get_config() derive from this list.
+    # To change a default, edit it here — nowhere else.
+    _PARAMS = [
+        {
+            'name': 'usbid',
+            'type': 'STRING',
+            'default': '1-2:1.0',
+            'description': 'AvNav USB port ID (from status page) — prevents AvNav treating device as NMEA source',
+        },
+        {
+            'name': 'channel',
+            'type': 'NUMBER',
+            'default': '0',
+            'description': 'Meshtastic channel index for outgoing messages',
+        },
+        {
+            'name': 'pos_interval',
+            'type': 'NUMBER',
+            'default': '60',
+            'description': 'Seconds between GPS position broadcasts (0 to disable)',
+        },
+        {
+            'name': 'alarm_interval',
+            'type': 'NUMBER',
+            'default': '60',
+            'description': 'Seconds between repeated sends of each active alarm (0 to disable alarm forwarding)',
+        },
+        {
+            'name': 'env_interval',
+            'type': 'NUMBER',
+            'default': '120',
+            'description': 'Seconds between environment telemetry sends (wind/pressure); 0 to disable',
+        },
+        {
+            'name': 'debug_interval',
+            'type': 'NUMBER',
+            'default': '0',
+            'description': 'Minutes between debug counter messages (0 to disable)',
+        },
+        {
+            'name': 'test_mode',
+            'type': 'BOOLEAN',
+            'default': False,
+            'description': 'Use hardcoded test values for position and environment instead of live AvNav data',
+        },
+    ]
+
     @classmethod
     def pluginInfo(cls):
         return {
@@ -102,59 +151,16 @@ class Plugin(object):
         self._port_at_connect = None    # port used when _interface was opened
 
         # Register editable parameters (visible on AvNav status page).
-        self.api.registerEditableParameters(
-            [
-                {
-                    'name': 'usbid',
-                    'type': 'STRING',
-                    'default': '1-2:1.0',
-                    'description': 'AvNav USB port ID (from status page) — prevents AvNav treating device as NMEA source'
-                },
-                {
-                    'name': 'channel',
-                    'type': 'NUMBER',
-                    'default': '0',
-                    'description': 'Meshtastic channel index for outgoing messages'
-                },
-                {
-                    'name': 'pos_interval',
-                    'type': 'NUMBER',
-                    'default': '60',
-                    'description': 'Seconds between GPS position broadcasts (0 to disable)'
-                },
-                {
-                    'name': 'alarm_interval',
-                    'type': 'NUMBER',
-                    'default': '60',
-                    'description': 'Seconds between repeated sends of each active alarm (0 to disable alarm forwarding)'
-                },
-                {
-                    'name': 'env_interval',
-                    'type': 'NUMBER',
-                    'default': '120',
-                    'description': 'Seconds between environment telemetry sends (wind/pressure); 0 to disable'
-                },
-                {
-                    'name': 'debug_interval',
-                    'type': 'NUMBER',
-                    'default': '0',
-                    'description': 'Minutes between debug counter messages (0 to disable)'
-                },
-                {
-                    'name': 'test_mode',
-                    'type': 'BOOLEAN',
-                    'default': False,
-                    'description': 'Use hardcoded test values for position and environment instead of live AvNav data'
-                },
-            ],
-            self._on_config_change
-        )
+        # The parameter definitions live in _PARAMS — do not duplicate them here.
+        # A deep copy is passed so AvNav cannot mutate the class-level list,
+        # which would corrupt _default() lookups.
+        self.api.registerEditableParameters(copy.deepcopy(self._PARAMS), self._on_config_change)
 
         # Allow the plugin to be enabled/disabled at runtime.
         self.api.registerRestart(self.stop)
 
         # Tell AvNav not to treat the Meshtastic USB port as a NMEA serial reader.
-        usbid = self.api.getConfigValue('usbid', '1-2:1.0')
+        usbid = self.api.getConfigValue('usbid', self._default('usbid'))
         if usbid:
             try:
                 self.api.registerUsbHandler(usbid, self._on_usb)
@@ -173,45 +179,50 @@ class Plugin(object):
             self.api.log("Port/usbid changed — disconnecting for reconnect")
             self._disconnect()
 
+    @classmethod
+    def _default(cls, name):
+        """Return the default value for a parameter by name, sourced from _PARAMS."""
+        for p in cls._PARAMS:
+            if p['name'] == name:
+                return p['default']
+        raise KeyError('Unknown parameter: %s' % name)
+
     def _get_bool_config(self, name):
-        """Read a BOOLEAN config value — AvNav returns it as a string 'True'/'False'."""
-        val = self.api.getConfigValue(name)
+        """Read a BOOLEAN config value — AvNav returns it as a string 'True'/'False'.
+        Falls back to the default from _PARAMS so the single source of truth is respected.
+        """
+        d = self._default(name)          # the canonical default (e.g. False)
+        val = self.api.getConfigValue(name, str(d))
+        if val is None:
+            return bool(d)
         if isinstance(val, str):
             return val.lower() in ('true', '1', 'yes')
         return bool(val)
 
     def _get_config(self):
-        """Read current config values with safe defaults."""
-        try:
-            interval = int(self.api.getConfigValue('pos_interval', '60') or 60)
-        except (TypeError, ValueError):
-            interval = 60
-        try:
-            channel = int(self.api.getConfigValue('channel', '0') or 0)
-        except (TypeError, ValueError):
-            channel = 0
-        try:
-            alarm_interval = int(self.api.getConfigValue('alarm_interval', '60') or 60)
-        except (TypeError, ValueError):
-            alarm_interval = 60
-        try:
-            debug_mins = int(self.api.getConfigValue('debug_interval', '0') or 0)
-        except (TypeError, ValueError):
-            debug_mins = 0
-        try:
-            env_interval = int(self.api.getConfigValue('env_interval', '0') or 0)
-        except (TypeError, ValueError):
-            env_interval = 0
-        usbid = self.api.getConfigValue('usbid', '1-2:1.0') or '1-2:1.0'
+        """Read current config values with safe defaults sourced from _PARAMS."""
+        def _int(name):
+            d = int(self._default(name))
+            try:
+                return int(self.api.getConfigValue(name, str(d)) or d)
+            except (TypeError, ValueError):
+                return d
+
+        interval      = _int('pos_interval')
+        channel       = _int('channel')
+        alarm_interval = _int('alarm_interval')
+        debug_mins    = _int('debug_interval')
+        env_interval  = _int('env_interval')
+        usbid = self.api.getConfigValue('usbid', self._default('usbid')) or self._default('usbid')
         port = _port_from_usbid(usbid)
         return {
             'port': port,
-            'pos_interval': max(0, interval),
+            'pos_interval':   max(0, interval),
             'alarm_interval': max(0, alarm_interval),
-            'env_interval': max(0, env_interval),
-            'channel': max(0, channel),
+            'env_interval':   max(0, env_interval),
+            'channel':        max(0, channel),
             'debug_interval': max(0, debug_mins) * 60,
-            'test_mode': self._get_bool_config('test_mode'),
+            'test_mode':      self._get_bool_config('test_mode'),
         }
 
     # ------------------------------------------------------------------
