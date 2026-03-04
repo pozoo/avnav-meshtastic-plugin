@@ -116,7 +116,7 @@ class Plugin(object):
             'name': 'test_mode',
             'type': 'BOOLEAN',
             'default': False,
-            'description': 'Use hardcoded test values for position and environment instead of live AvNav data',
+            'description': 'Send hardcoded test values for position and environment. Also send chat message every 60s.',
         },
     ]
 
