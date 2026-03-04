@@ -1,0 +1,116 @@
+name: Build .deb for Raspbian Bookworm (arm64)
+
+# Triggers:
+#   - Manual run via the "Actions" tab (workflow_dispatch).
+#     Optionally supply a version like "1.0.0"; default produces a snapshot.
+#   - Automatic run on every push to main (snapshot version).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: >
+          Upstream version string (e.g. 1.2.0).
+          Leave empty to build a dev snapshot (0.0.0~dev.<short-sha>).
+        required: false
+        default: ''
+
+jobs:
+  build-deb:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ------------------------------------------------------------------ #
+      # 1. Check out the repository                                          #
+      # ------------------------------------------------------------------ #
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ------------------------------------------------------------------ #
+      # 2. Determine the package version                                     #
+      #                                                                      #
+      # Debian format inside changelog: package (VERSION) distro; urgency=  #
+      # The full version includes the Debian revision suffix (-1).           #
+      # ------------------------------------------------------------------ #
+      - name: Set package version
+        id: version
+        run: |
+          if [[ -n "${{ inputs.version }}" ]]; then
+            # Manual run with explicit version
+            DEB_VERSION="${{ inputs.version }}-1"
+          else
+            # Snapshot: 0.0.0~dev.<8-char SHA>  (~ sorts below any release)
+            SHORT_SHA="${GITHUB_SHA::8}"
+            DEB_VERSION="0.0.0~dev.${SHORT_SHA}-1"
+          fi
+          echo "deb_version=${DEB_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Building package version: ${DEB_VERSION}"
+
+      # ------------------------------------------------------------------ #
+      # 3. Install QEMU so Docker can run arm64 containers on the x86 host  #
+      # ------------------------------------------------------------------ #
+      - name: Set up QEMU for ARM64 emulation
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      # ------------------------------------------------------------------ #
+      # 4. Build the .deb inside a Debian Bookworm arm64 container          #
+      #                                                                      #
+      # Running inside the target architecture/OS ensures that:             #
+      #   • pip downloads arm64 wheels (dbus-fast, protobuf, PyYAML, …)     #
+      #   • compiled .so files have the correct aarch64-linux-gnu ABI       #
+      #   • the Python version matches Bookworm's python3 (3.11)            #
+      #                                                                      #
+      # dpkg-buildpackage places output files one directory above the       #
+      # source tree, which is "/" inside the container. We collect them     #
+      # into /workspace/output/ before the container exits.                 #
+      # ------------------------------------------------------------------ #
+      - name: Build .deb inside ARM64 Bookworm container
+        env:
+          DEB_VERSION: ${{ steps.version.outputs.deb_version }}
+        run: |
+          docker run --rm --platform linux/arm64 \
+            -v "${{ github.workspace }}:/workspace" \
+            -w /workspace \
+            -e "DEB_VERSION=${DEB_VERSION}" \
+            debian:bookworm \
+            bash -c '
+              set -e
+
+              echo "==> Installing build dependencies"
+              apt-get update -qq
+              apt-get install -y --no-install-recommends \
+                debhelper build-essential python3 python3-pip
+
+              echo "==> Setting changelog version to ${DEB_VERSION}"
+              sed -i \
+                "s/^avnav-meshtastic-plugin ([^)]*)/avnav-meshtastic-plugin (${DEB_VERSION})/" \
+                debian/changelog
+
+              echo "==> Running dpkg-buildpackage"
+              # -b  build binary package only (no source tarball)
+              # -us skip signing the source package
+              # -uc skip signing the .changes file
+              dpkg-buildpackage -b -us -uc
+
+              echo "==> Collecting output artefacts"
+              mkdir -p /workspace/output
+              mv /*.deb /*.buildinfo /*.changes /workspace/output/ 2>/dev/null || true
+              echo "==> Contents of output/"
+              ls -lh /workspace/output/
+            '
+
+      # ------------------------------------------------------------------ #
+      # 5. Upload the .deb as a workflow artifact                           #
+      #                                                                      #
+      # Find it under Actions → this run → Artifacts.                      #
+      # ------------------------------------------------------------------ #
+      - name: Upload .deb artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: avnav-meshtastic-plugin_${{ steps.version.outputs.deb_version }}_arm64
+          path: output/*.deb
+          retention-days: 30
+          if-no-files-found: error

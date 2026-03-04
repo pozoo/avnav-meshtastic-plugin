@@ -1,0 +1,23 @@
+Source: avnav-meshtastic-plugin
+Section: misc
+Priority: optional
+Maintainer: Unknown <unknown@example.com>
+Build-Depends: debhelper-compat (= 13), python3, python3-pip
+Standards-Version: 4.6.2
+Rules-Requires-Root: no
+
+Package: avnav-meshtastic-plugin
+Architecture: arm64
+Depends: ${misc:Depends}, avnav, python3-serial, python3-pubsub
+Description: AvNav plugin for Meshtastic radio integration
+ Sends GPS position, environmental telemetry and alarm notifications
+ via a Meshtastic LoRa device connected over USB serial.
+ .
+ Bundles the meshtastic Python library (2.7.7) and the dependencies that
+ require newer versions than Raspbian Bookworm ships: bleak, dbus-fast,
+ packaging, protobuf, tabulate, PyYAML, requests and their transitive
+ dependencies.
+ .
+ pyserial and pypubsub are satisfied by the system deb packages
+ python3-serial and python3-pubsub.
+XB-avnav-plugin: meshtastic

@@ -1,0 +1,42 @@
+#!/usr/bin/make -f
+export DH_VERBOSE = 1
+
+%:
+	dh $@
+
+# Populate meshtastic/lib/ with bundled pip dependencies.
+# --target installs to a custom directory and does not trigger the Bookworm
+# PEP-668 "externally managed environment" guard.
+# --no-compile skips generating .pyc byte-code files at install time
+# (they are architecture/path-specific and not needed in the package;
+#  Python regenerates them on first import).
+override_dh_auto_build:
+	pip3 install --no-compile \
+		-t meshtastic/lib \
+		meshtastic==2.7.7
+	# Remove the two packages that are provided by deb dependencies
+	# (python3-serial and python3-pubsub).
+	rm -rf meshtastic/lib/serial \
+	       meshtastic/lib/pyserial*.dist-info \
+	       meshtastic/lib/pubsub \
+	       meshtastic/lib/pypubsub*.dist-info
+	# Remove console-script stubs – not needed inside the plugin directory.
+	rm -rf meshtastic/lib/bin
+	# Strip any __pycache__ directories that pip may have created despite
+	# --no-compile (some packages run post-install hooks).
+	find meshtastic/lib -type d -name '__pycache__' -exec rm -rf {} + \
+		2>/dev/null || true
+
+override_dh_auto_test:
+	# No automated tests.
+
+override_dh_install:
+	install -d debian/avnav-meshtastic-plugin/usr/lib/avnav/plugins/
+	cp -r meshtastic \
+	      debian/avnav-meshtastic-plugin/usr/lib/avnav/plugins/meshtastic
+
+override_dh_auto_clean:
+	# Wipe the populated lib/ so a fresh build always starts clean.
+	# Preserve the .gitkeep sentinel so git does not complain.
+	find meshtastic/lib -mindepth 1 ! -name '.gitkeep' \
+		-delete 2>/dev/null || true
