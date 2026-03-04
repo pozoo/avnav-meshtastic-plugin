@@ -7,8 +7,8 @@ This can be used e.g. to receive an alert when your anchor drags, even when you 
 
 ## Features
 
-- **GPS position packets** — broadcasts latitude, longitude, SOG, HDOP, satellite count and fix quality as native Meshtastic `POSITION_APP` protobuf packets
-- **Environmental telemetry** — sends true wind speed/direction, gusts, barometric pressure and anchor watch distance as `TELEMETRY_APP / EnvironmentMetrics` packets
+- **GPS position packets** — broadcasts latitude, longitude, SOG, HDOP, satellite count and fix quality as native Meshtastic `POSITION_APP` protobuf packets, showing up as node position in the Meshtastic app on the map and position log
+- **Environmental telemetry** — sends true wind speed/direction, gusts, barometric pressure and anchor watch distance as `TELEMETRY_APP / EnvironmentMetrics` packets, diplayed as environment data in the Meshtastic app
 - **Alarm forwarding** — detects active AvNav alarms and sends them as text messages over the mesh; repeats at a configurable interval until cleared
 - **Remote alarm control** — accepts `alarm silent`, `alarm active` and `alarm status` commands received over the mesh
 
