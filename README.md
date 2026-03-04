@@ -32,42 +32,33 @@ This can be used e.g. to receive an alert when your anchor drags, even when you 
 
 ## Installation
 
-### 1. Clone the repository
+### Option A — .deb package (recommended)
+
+Download the `.deb` for your architecture (`arm64`, `armhf`, or `amd64`) from the [Releases](../../releases) page, then install it:
 
 ```bash
-git clone https://github.com/<your-username>/avnav-meshtastic.git
-cd avnav-meshtastic
+sudo apt install ./avnav-meshtastic-plugin_<version>_<arch>.deb
 ```
 
-### 3. Install the meshtastic Python library into the plugin meshtastic/lib folder
+### Option B — zip archive
 
-```bash
-./install_non_deb_dependencies.sh
-```
+1. Download the source zip from the [Releases](../../releases) page and extract it.
+2. In the extracted folder, install the required Python libraries into the plugin's `lib/` directory:
+   ```bash
+   ./install_non_deb_dependencies.sh
+   ```
+3. Copy the plugin into AvNav's user plugin directory:
+   ```bash
+   cp -r meshtastic ~/avnav/data/plugins/meshtastic
+   ```
 
-This runs `pip3 install -t meshtastic/lib -r requirements.txt` and places the library files directly into `meshtastic/lib/`. It does not install files elsewhere on your computer.
-
-### 4. Install the plugin into AvNav
-
-Symlink the `meshtastic/` folder into AvNav's plugin directory:
-
-```bash
-ln -s "$(pwd)/meshtastic" ~/.avnav/plugins/meshtastic
-```
-
-Or copy it:
-
-```bash
-cp -r meshtastic ~/.avnav/plugins/meshtastic
-```
-
-### 5. Restart AvNav
+### Restart AvNav
 
 ```bash
 sudo systemctl restart avnav
 ```
 
-The plugin should appear on the AvNav status page.
+The plugin appears on the AvNav status page once it starts.
 
 ## Configuration
 
@@ -85,8 +76,7 @@ Also remember to change the channel to your private channel number!
 | `pos_interval` | `60` | Seconds between GPS position broadcasts (0 to disable) |
 | `alarm_interval` | `60` | Seconds between repeated sends of each active alarm (0 to disable) |
 | `env_interval` | `120` | Seconds between environment telemetry sends (0 to disable) |
-| `debug_interval` | `0` | Minutes between debug counter messages (0 to disable) for communication testing |
-| `test_mode` | `false` | Use hardcoded test values instead of live AvNav data to test communication |
+| `test_mode` | `false` | Use hardcoded test values instead of live AvNav data; also sends a debug counter message every 60 s |
 
 ## Remote Commands
 
