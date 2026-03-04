@@ -1,24 +1,36 @@
-name: Build .deb for Raspbian Bookworm (arm64)
+name: Build .deb packages for Raspbian/Debian Bookworm
 
-# Triggers:
-#   - Manual run via the "Actions" tab (workflow_dispatch).
-#     Optionally supply a version like "1.0.0"; default produces a snapshot.
-#   - Automatic run on every push to main (snapshot version).
+# Triggered manually only — go to Actions → this workflow → Run workflow.
+# Optionally supply a version string (e.g. 1.0.0); leaving it empty produces
+# a dev snapshot (0.0.0~dev.<short-sha>).
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       version:
         description: >
-          Upstream version string (e.g. 1.2.0).
-          Leave empty to build a dev snapshot (0.0.0~dev.<short-sha>).
+          Package version (e.g. 1.0.0).
+          Leave empty for a dev snapshot (0.0.0~dev.<short-sha>).
         required: false
         default: ''
 
 jobs:
   build-deb:
+    name: Build .deb (${{ matrix.arch }})
     runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false   # build all architectures even if one fails
+      matrix:
+        include:
+          - arch: arm64
+            platform: linux/arm64
+            qemu: true
+          - arch: armhf
+            platform: linux/arm/v7
+            qemu: true
+          - arch: amd64
+            platform: linux/amd64
+            qemu: false
 
     steps:
       # ------------------------------------------------------------------ #
@@ -30,64 +42,81 @@ jobs:
       # ------------------------------------------------------------------ #
       # 2. Determine the package version                                     #
       #                                                                      #
-      # Debian format inside changelog: package (VERSION) distro; urgency=  #
-      # The full version includes the Debian revision suffix (-1).           #
+      # Debian version format: UPSTREAM-DEBREVISION  e.g. 1.0.0-1           #
+      # The ~ character sorts below any release, so dev snapshots always    #
+      # appear older than a real version to apt.                             #
       # ------------------------------------------------------------------ #
       - name: Set package version
         id: version
         run: |
           if [[ -n "${{ inputs.version }}" ]]; then
-            # Manual run with explicit version
             DEB_VERSION="${{ inputs.version }}-1"
           else
-            # Snapshot: 0.0.0~dev.<8-char SHA>  (~ sorts below any release)
             SHORT_SHA="${GITHUB_SHA::8}"
             DEB_VERSION="0.0.0~dev.${SHORT_SHA}-1"
           fi
           echo "deb_version=${DEB_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "Building package version: ${DEB_VERSION}"
+          echo "Building package version: ${DEB_VERSION} for ${{ matrix.arch }}"
 
       # ------------------------------------------------------------------ #
-      # 3. Install QEMU so Docker can run arm64 containers on the x86 host  #
+      # 3. Install QEMU (ARM architectures only)                            #
+      #                                                                      #
+      # QEMU lets the x86-64 runner execute ARM Docker containers so that   #
+      # pip downloads the correct ABI wheels and compiled .so files match   #
+      # the target CPU.  amd64 runs natively — no QEMU needed.             #
       # ------------------------------------------------------------------ #
-      - name: Set up QEMU for ARM64 emulation
+      - name: Set up QEMU for ARM emulation
+        if: ${{ matrix.qemu }}
         uses: docker/setup-qemu-action@v3
         with:
-          platforms: arm64
+          platforms: ${{ matrix.platform }}
 
       # ------------------------------------------------------------------ #
-      # 4. Build the .deb inside a Debian Bookworm arm64 container          #
+      # 4. Build the .deb inside a Debian Bookworm container                #
       #                                                                      #
       # Running inside the target architecture/OS ensures that:             #
-      #   • pip downloads arm64 wheels (dbus-fast, protobuf, PyYAML, …)     #
-      #   • compiled .so files have the correct aarch64-linux-gnu ABI       #
+      #   • pip downloads the correct ABI wheels for this architecture      #
+      #   • compiled .so files have the matching ABI                        #
       #   • the Python version matches Bookworm's python3 (3.11)            #
       #                                                                      #
+      # The Architecture field in debian/control is patched dynamically so  #
+      # a single control file covers all three build targets.               #
+      #                                                                      #
       # dpkg-buildpackage places output files one directory above the       #
-      # source tree, which is "/" inside the container. We collect them     #
-      # into /workspace/output/ before the container exits.                 #
+      # source tree (/), so we move them to /workspace/output/ before the  #
+      # container exits.                                                     #
       # ------------------------------------------------------------------ #
-      - name: Build .deb inside ARM64 Bookworm container
+      - name: Build .deb inside ${{ matrix.arch }} Bookworm container
         env:
           DEB_VERSION: ${{ steps.version.outputs.deb_version }}
+          DEB_ARCH: ${{ matrix.arch }}
         run: |
-          docker run --rm --platform linux/arm64 \
+          docker run --rm --platform ${{ matrix.platform }} \
             -v "${{ github.workspace }}:/workspace" \
             -w /workspace \
             -e "DEB_VERSION=${DEB_VERSION}" \
+            -e "DEB_ARCH=${DEB_ARCH}" \
             debian:bookworm \
             bash -c '
               set -e
+
+              echo "==> Architecture: ${DEB_ARCH}"
+              echo "==> Package version: ${DEB_VERSION}"
 
               echo "==> Installing build dependencies"
               apt-get update -qq
               apt-get install -y --no-install-recommends \
                 debhelper build-essential python3 python3-pip
 
-              echo "==> Setting changelog version to ${DEB_VERSION}"
+              echo "==> Patching debian/changelog version to ${DEB_VERSION}"
               sed -i \
                 "s/^avnav-meshtastic-plugin ([^)]*)/avnav-meshtastic-plugin (${DEB_VERSION})/" \
                 debian/changelog
+
+              echo "==> Patching debian/control Architecture to ${DEB_ARCH}"
+              sed -i \
+                "s/^Architecture: .*/Architecture: ${DEB_ARCH}/" \
+                debian/control
 
               echo "==> Running dpkg-buildpackage"
               # -b  build binary package only (no source tarball)
@@ -106,13 +135,12 @@ jobs:
       # 5. Upload the .deb as a workflow artifact                           #
       #                                                                      #
       # Find it under Actions → this run → Artifacts.                      #
+      # The -dbgsym companion package (debug symbols) is excluded.         #
       # ------------------------------------------------------------------ #
-      - name: Upload .deb artifact
+      - name: Upload .deb artifact (${{ matrix.arch }})
         uses: actions/upload-artifact@v4
         with:
-          name: avnav-meshtastic-plugin_${{ steps.version.outputs.deb_version }}_arm64
-          # Exclude the automatic -dbgsym companion package; only ship the
-          # main installable .deb.
+          name: avnav-meshtastic-plugin_${{ steps.version.outputs.deb_version }}_${{ matrix.arch }}
           path: |
             output/*.deb
             !output/*dbgsym*.deb
