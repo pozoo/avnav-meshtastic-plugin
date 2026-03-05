@@ -12,11 +12,10 @@ import urllib.request
 import urllib.parse
 
 # Add the lib/ folder next to this file so meshtastic is importable without a
-# system install.  Using append (not insert) so system packages still take
-# priority for everything AvNav already uses.
+# system install.
 _LIB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib')
 if _LIB_PATH not in sys.path:
-    sys.path.append(_LIB_PATH)
+    sys.path.insert(0, _LIB_PATH)
 
 import serial.tools.list_ports as _list_ports
 
