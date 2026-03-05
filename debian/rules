@@ -13,7 +13,7 @@ export DH_VERBOSE = 1
 override_dh_auto_build:
 	pip3 install --no-compile \
 		-t meshtastic/lib \
-		meshtastic==2.7.7
+		-r requirements.txt
 	# Remove the two packages that are provided by deb dependencies
 	# (python3-serial and python3-pubsub).
 	rm -rf meshtastic/lib/serial \
