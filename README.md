@@ -8,7 +8,8 @@ This can be used e.g. to receive an alert when your anchor drags, even when you 
 ## Features
 
 - **GPS position packets** — broadcasts latitude, longitude, SOG, HDOP, satellite count and fix quality as native Meshtastic `POSITION_APP` protobuf packets, showing up as node position in the Meshtastic app on the map and position log
-- **Environmental telemetry** — sends true wind speed/direction, gusts, barometric pressure and anchor watch distance as `TELEMETRY_APP / EnvironmentMetrics` packets, diplayed as environment data in the Meshtastic app
+- **Environmental telemetry** — sends true wind speed/direction, gusts, barometric pressure, temperature, humidity and anchor watch distance as `TELEMETRY_APP / EnvironmentMetrics` packets, diplayed as environment data in the Meshtastic app
+- **Power telemetry** — sends battery voltage and current for up to two channels (house bank, starter battery, etc.) as `TELEMETRY_APP / PowerMetrics` packets; each channel is independently configurable via an AvNav data key
 - **Alarm forwarding** — detects active AvNav alarms and sends them as text messages over the mesh; repeats at a configurable interval until cleared
 - **Remote alarm control** — accepts `alarm silent`, `alarm active` and `alarm status` commands received over the mesh
 
@@ -78,6 +79,14 @@ Also remember to change the channel to your private channel number!
 | `pos_interval` | `60` | Seconds between GPS position broadcasts (0 to disable) |
 | `alarm_interval` | `60` | Seconds between repeated sends of each active alarm (0 to disable) |
 | `env_interval` | `120` | Seconds between environment telemetry sends (0 to disable) |
+| `pressure_key` | `gps.signalk.environment.outside.pressure` | AvNav key for barometric pressure (Pa, Signal K). Leave empty to disable pressure transmission |
+| `temperature_key` | *(empty)* | AvNav key for outside air temperature (°C). Leave empty to disable |
+| `humidity_key` | *(empty)* | AvNav key for relative humidity (%). Leave empty to disable |
+| `power_interval` | `300` | Seconds between power telemetry sends (CH1/CH2); 0 to disable |
+| `ch1_voltage_key` | *(empty)* | AvNav key for CH1 battery voltage (V). Leave empty to disable CH1 |
+| `ch1_current_key` | *(empty)* | AvNav key for CH1 current (**A**). Leave empty to disable. The plugin converts A → mA before transmitting |
+| `ch2_voltage_key` | *(empty)* | AvNav key for CH2 battery voltage (V). Leave empty to disable CH2 |
+| `ch2_current_key` | *(empty)* | AvNav key for CH2 current (**A**). Leave empty to disable. The plugin converts A → mA before transmitting |
 | `test_mode` | `false` | Use hardcoded test values instead of live AvNav data; also sends a debug counter message every 60 s |
 
 ## Remote Commands
@@ -112,8 +121,22 @@ Send any of these as a plain text message on the configured channel to control t
 | `gps.trueWindSpeed` / `gps.sail_instrument.TWS` | `EnvironmentMetrics.wind_speed` |
 | `gps.trueWindDirection` / `gps.sail_instrument.TWD` | `EnvironmentMetrics.wind_direction` |
 | `gps.sail_instrument.TWSMAX` | `EnvironmentMetrics.wind_gust` |
-| `gps.signalk.environment.outside.pressure` | `EnvironmentMetrics.barometric_pressure` |
+| `pressure_key` (configurable, default `gps.signalk.environment.outside.pressure`) | `EnvironmentMetrics.barometric_pressure` |
+| `temperature_key` (configurable, empty = disabled) | `EnvironmentMetrics.temperature` |
+| `humidity_key` (configurable, empty = disabled) | `EnvironmentMetrics.relative_humidity` |
 | *(AVNRouter anchor watch leg, in-process)* | `EnvironmentMetrics.distance` |
+
+### Power telemetry packet (`TELEMETRY_APP / PowerMetrics`)
+
+Each field is only transmitted when its corresponding AvNav key is configured and the key has a value.
+Current values are expected in **amperes (A)** — the plugin multiplies by 1000 before transmitting to match the protobuf convention of milliamperes (mA).
+
+| Config parameter | Meshtastic field | Unit |
+|---|---|---|
+| `ch1_voltage_key` | `PowerMetrics.ch1_voltage` | V |
+| `ch1_current_key` | `PowerMetrics.ch1_current` | A (transmitted as mA) |
+| `ch2_voltage_key` | `PowerMetrics.ch2_voltage` | V |
+| `ch2_current_key` | `PowerMetrics.ch2_current` | A (transmitted as mA) |
 
 ## License
 

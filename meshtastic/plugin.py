@@ -67,8 +67,6 @@ AVNAV_WIND_SPD_ALT  = 'gps.sail_instrument.TWS'                     # alternate 
 AVNAV_WIND_GUST     = 'gps.sail_instrument.TWSMAX'                  # max TWS in m/s
 AVNAV_WIND_DIR      = 'gps.trueWindDirection'                       # true wind direction, degrees
 AVNAV_WIND_DIR_ALT  = 'gps.sail_instrument.TWD'                     # alternate key tried if AVNAV_WIND_DIR returns nothing 
-AVNAV_PRESSURE      = 'gps.signalk.environment.outside.pressure'    # Signal K stores pressure in Pa; plugin converts ÷100 → hPa
-
 # anchor.distance / anchor.direction / anchor.watchDistance are JavaScript-only store keys
 # (computed in the browser by navdata.js from leg.from + current GPS position).
 # Anchor distance is read directly from AVNRouter in-process via _get_anchor_distance_m().
@@ -111,6 +109,54 @@ class Plugin(object):
             'default': '120',
             'description': 'Seconds between environment telemetry sends (wind/pressure); 0 to disable',
         },
+         {
+            'name': 'power_interval',
+            'type': 'NUMBER',
+            'default': '300',
+            'description': 'Seconds between power telemetry sends (CH1/CH2 voltage+current); 0 to disable',
+        },
+        {
+            'name': 'pressure_key',
+            'type': 'STRING',
+            'default': 'gps.signalk.environment.outside.pressure',
+            'description': 'AvNav key for barometric pressure (Pa, Signal K convention). Leave empty to disable pressure transmission.',
+        },
+        {
+            'name': 'temperature_key',
+            'type': 'STRING',
+            'default': '',
+            'description': 'AvNav key for outside air temperature (°C). Leave empty to disable temperature transmission.',
+        },
+        {
+            'name': 'humidity_key',
+            'type': 'STRING',
+            'default': '',
+            'description': 'AvNav key for relative humidity (%). Leave empty to disable humidity transmission.',
+        },
+        {
+            'name': 'ch1_voltage_key',
+            'type': 'STRING',
+            'default': '',
+            'description': 'AvNav key for CH1 battery voltage (V). Leave empty to disable CH1 power transmission.',
+        },
+        {
+            'name': 'ch1_current_key',
+            'type': 'STRING',
+            'default': '',
+            'description': 'AvNav key for CH1 current (A, positive = load). Leave empty to disable.',
+        },
+        {
+            'name': 'ch2_voltage_key',
+            'type': 'STRING',
+            'default': '',
+            'description': 'AvNav key for CH2 battery voltage (V). Leave empty to disable CH2 power transmission.',
+        },
+        {
+            'name': 'ch2_current_key',
+            'type': 'STRING',
+            'default': '',
+            'description': 'AvNav key for CH2 current (A, positive = load). Leave empty to disable.',
+        },
         {
             'name': 'test_mode',
             'type': 'BOOLEAN',
@@ -139,6 +185,7 @@ class Plugin(object):
         self._alarm_silenced = False         # when True, alarm forwarding is paused
         self._last_telemetry = 0.0      # monotonic timestamp of last telemetry send
         self._last_environment = 0.0    # monotonic timestamp of last environment send
+        self._last_power = 0.0          # monotonic timestamp of last power telemetry send
         self._last_debug_send = 0.0     # monotonic timestamp of last test-mode debug send
         self._debug_counter = 0         # counts debug messages sent in current test session
         self._port_at_connect = None    # port used when _interface was opened
@@ -208,19 +255,35 @@ class Plugin(object):
             except (TypeError, ValueError):
                 return d
 
-        interval      = _int('pos_interval')
-        channel       = _int('channel')
+        interval       = _int('pos_interval')
+        channel        = _int('channel')
         alarm_interval = _int('alarm_interval')
-        env_interval  = _int('env_interval')
+        env_interval   = _int('env_interval')
+        power_interval = _int('power_interval')
         usbid = self.api.getConfigValue('usbid', self._default('usbid')) or self._default('usbid')
         port = _port_from_usbid(usbid)
+        pressure_key    = self.api.getConfigValue('pressure_key', self._default('pressure_key')) or ''
+        temperature_key = self.api.getConfigValue('temperature_key', '') or ''
+        humidity_key    = self.api.getConfigValue('humidity_key', '') or ''
+        ch1_voltage_key = self.api.getConfigValue('ch1_voltage_key', '') or ''
+        ch1_current_key = self.api.getConfigValue('ch1_current_key', '') or ''
+        ch2_voltage_key = self.api.getConfigValue('ch2_voltage_key', '') or ''
+        ch2_current_key = self.api.getConfigValue('ch2_current_key', '') or ''
         return {
             'port': port,
             'pos_interval':   max(0, interval),
             'alarm_interval': max(0, alarm_interval),
             'env_interval':   max(0, env_interval),
+            'power_interval': max(0, power_interval),
             'channel':        max(0, channel),
             'test_mode':      self._get_bool_config('test_mode'),
+            'pressure_key':   pressure_key,
+            'temperature_key': temperature_key,
+            'humidity_key':   humidity_key,
+            'ch1_voltage_key': ch1_voltage_key,
+            'ch1_current_key': ch1_current_key,
+            'ch2_voltage_key': ch2_voltage_key,
+            'ch2_current_key': ch2_current_key,
         }
 
     # ------------------------------------------------------------------
@@ -307,11 +370,19 @@ class Plugin(object):
     _TEST_FIX        = 1          # 1 = GPS fix
 
     # Test-mode fixed values for environment
-    _TEST_WIND_MS    = 5.144      # m/s  (~10 kt)
-    _TEST_WIND_DIR   = 270        # degrees
-    _TEST_WIND_GUST  = 7.716      # m/s  (~15 kt)
-    _TEST_PRESSURE        = 1013.2     # hPa
+    _TEST_WIND_MS        = 5.144      # m/s  (~10 kt)
+    _TEST_WIND_DIR       = 270        # degrees
+    _TEST_WIND_GUST      = 7.716      # m/s  (~15 kt)
+    _TEST_PRESSURE       = 1013.2     # hPa
+    _TEST_TEMPERATURE    = 22.5       # °C
+    _TEST_HUMIDITY       = 65.0       # %
     _TEST_ANCHOR_DIST_MM = 25000.0    # mm  (~25 m)
+
+    # Test-mode fixed values for power telemetry
+    _TEST_CH1_V = 12.8   # V  house battery bank
+    _TEST_CH1_A = 18.4   # A  load (nav instruments + fridge)
+    _TEST_CH2_V = 12.6   # V  starter battery
+    _TEST_CH2_A =  0.2   # A  trickle from combiner
 
     def _read_float(self, key, default=0.0):
         """Safely read a float AvNav value; returns default if key is None or invalid."""
@@ -442,10 +513,11 @@ class Plugin(object):
             self._disconnect()
             return False
 
-    def _send_environment_packet(self, channel, test_mode=False):
+    def _send_environment_packet(self, channel, test_mode=False,
+                                  pressure_key='', temperature_key='', humidity_key=''):
         """
         Send a Meshtastic TELEMETRY_APP / EnvironmentMetrics packet from
-        current AvNav wind and pressure data.
+        current AvNav wind, pressure, temperature and humidity data.
         Returns True on success.  Returns False (without disconnecting) if no
         data is available in live mode.  Disconnects and returns False on
         send failure.
@@ -455,10 +527,13 @@ class Plugin(object):
             wind_dir       = self._TEST_WIND_DIR
             gust_ms        = self._TEST_WIND_GUST
             pressure       = self._TEST_PRESSURE
+            temperature    = self._TEST_TEMPERATURE
+            humidity       = self._TEST_HUMIDITY
             anchor_dist_mm = self._TEST_ANCHOR_DIST_MM
             self.api.log(
-                "TEST MODE environment: wind=%.2f m/s dir=%d° gust=%.2f m/s pressure=%.1f hPa anchor=%.0f mm",
-                wind_ms, wind_dir, gust_ms, pressure, anchor_dist_mm
+                "TEST MODE environment: wind=%.2f m/s dir=%d° gust=%.2f m/s "
+                "pressure=%.1f hPa temp=%.1f °C humidity=%.0f %% anchor=%.0f mm",
+                wind_ms, wind_dir, gust_ms, pressure, temperature, humidity, anchor_dist_mm
             )
         else:
             # Wind speed: AvNav stores in m/s (NMEA knots already converted by AvNav parser)
@@ -471,16 +546,24 @@ class Plugin(object):
             dir_raw  = self._get_value_with_fallback(AVNAV_WIND_DIR, AVNAV_WIND_DIR_ALT)
             wind_dir = int(float(dir_raw)) if dir_raw is not None else None
 
-            pres_raw = self.api.getSingleValue(AVNAV_PRESSURE)
+            pres_raw = self.api.getSingleValue(pressure_key) if pressure_key else None
             # Signal K pressure is in Pascals; convert to hPa (÷100)
             pressure = float(pres_raw) / 100.0 if pres_raw is not None else None
+
+            temp_raw = self.api.getSingleValue(temperature_key) if temperature_key else None
+            temperature = float(temp_raw) if temp_raw is not None else None
+
+            hum_raw = self.api.getSingleValue(humidity_key) if humidity_key else None
+            humidity = float(hum_raw) if hum_raw is not None else None
 
             # Anchor distance: read from AVNRouter in-process; EnvironmentMetrics.distance expects mm
             anchor_m = self._get_anchor_distance_m()
             anchor_dist_mm = anchor_m * 1000.0 if anchor_m is not None else None
 
             # Need at least one field to be worth sending
-            if wind_ms is None and wind_dir is None and gust_ms is None and pressure is None and anchor_dist_mm is None:
+            if (wind_ms is None and wind_dir is None and gust_ms is None
+                    and pressure is None and temperature is None
+                    and humidity is None and anchor_dist_mm is None):
                 self.api.debug("No environment data available — skipping")
                 return False
 
@@ -494,6 +577,8 @@ class Plugin(object):
             if wind_dir       is not None:  env.wind_direction      = wind_dir
             if gust_ms        is not None:  env.wind_gust           = gust_ms
             if pressure       is not None:  env.barometric_pressure = pressure
+            if temperature    is not None:  env.temperature         = temperature
+            if humidity       is not None:  env.relative_humidity   = humidity
             if anchor_dist_mm is not None:  env.distance            = anchor_dist_mm
 
             telemetry = telemetry_pb2.Telemetry()
@@ -506,16 +591,99 @@ class Plugin(object):
                 channelIndex=channel,
             )
             self.api.log(
-                "Environment sent: wind=%s m/s dir=%s° gust=%s m/s pressure=%s hPa anchor=%s mm",
+                "Environment sent: wind=%s m/s dir=%s° gust=%s m/s pressure=%s hPa "
+                "temp=%s °C humidity=%s %% anchor=%s mm",
                 '%.2f' % wind_ms        if wind_ms        is not None else 'N/A',
                 '%d'   % wind_dir       if wind_dir       is not None else 'N/A',
                 '%.2f' % gust_ms        if gust_ms        is not None else 'N/A',
                 '%.1f' % pressure       if pressure       is not None else 'N/A',
+                '%.1f' % temperature    if temperature    is not None else 'N/A',
+                '%.0f' % humidity       if humidity       is not None else 'N/A',
                 '%.0f' % anchor_dist_mm if anchor_dist_mm is not None else 'N/A',
             )
             return True
         except Exception as e:
             self.api.error("Failed to send environment packet: %s", str(e))
+            self._disconnect()
+            return False
+
+    # ------------------------------------------------------------------
+    # Power telemetry
+    # ------------------------------------------------------------------
+
+    def _send_power_packet(self, channel, test_mode=False,
+                           ch1_v_key='', ch1_a_key='',
+                           ch2_v_key='', ch2_a_key=''):
+        """
+        Send a Meshtastic TELEMETRY_APP / PowerMetrics packet with battery
+        voltage and current data.
+        In live mode only channels whose keys are non-empty are populated;
+        if AvNav has no value for a configured key that field is omitted.
+        Current values (A) are multiplied by 1000 to satisfy the protobuf
+        convention of mA.
+        Returns True on success, False when there is nothing to send or on
+        send failure (disconnects on failure).
+        """
+        if test_mode:
+            ch1_v = self._TEST_CH1_V
+            ch1_a = self._TEST_CH1_A
+            ch2_v = self._TEST_CH2_V
+            ch2_a = self._TEST_CH2_A
+            self.api.log(
+                "TEST MODE power: ch1=%.1f V/%.2f A  ch2=%.1f V/%.2f A",
+                ch1_v, ch1_a, ch2_v, ch2_a
+            )
+        else:
+            def _read_key(key):
+                if not key:
+                    return None
+                v = self.api.getSingleValue(key)
+                if v is None:
+                    return None
+                try:
+                    return float(v)
+                except (TypeError, ValueError):
+                    return None
+
+            ch1_v = _read_key(ch1_v_key)
+            ch1_a = _read_key(ch1_a_key)
+            ch2_v = _read_key(ch2_v_key)
+            ch2_a = _read_key(ch2_a_key)
+
+            if ch1_v is None and ch1_a is None and ch2_v is None and ch2_a is None:
+                self.api.debug("No power data available — skipping")
+                return False
+
+        with self._interface_lock:
+            iface = self._interface
+        if iface is None:
+            return False
+        try:
+            pm = telemetry_pb2.PowerMetrics()
+            if ch1_v is not None: pm.ch1_voltage = ch1_v
+            if ch1_a is not None: pm.ch1_current = ch1_a * 1000.0  # A → mA
+            if ch2_v is not None: pm.ch2_voltage = ch2_v
+            if ch2_a is not None: pm.ch2_current = ch2_a * 1000.0  # A → mA
+
+            telemetry = telemetry_pb2.Telemetry()
+            telemetry.time = int(time.time())
+            telemetry.power_metrics.CopyFrom(pm)
+
+            iface.sendData(
+                telemetry,
+                portNum=portnums_pb2.PortNum.TELEMETRY_APP,
+                channelIndex=channel,
+            )
+            self.api.log(
+                "Power sent: ch1=%s V/%s A  ch2=%s V/%s A",
+                '%.1f' % ch1_v if ch1_v is not None else 'N/A',
+                '%.2f' % ch1_a if ch1_a is not None else 'N/A',
+                '%.1f' % ch2_v if ch2_v is not None else 'N/A',
+                '%.2f' % ch2_a if ch2_a is not None else 'N/A',
+            )
+            return True
+        except Exception as e:
+            self.api.error("Failed to send power packet: %s", str(e))
             self._disconnect()
             return False
 
@@ -620,7 +788,12 @@ class Plugin(object):
             # --- Environment telemetry ---
             env_interval = cfg['env_interval']
             if env_interval > 0 and (now - self._last_environment) >= env_interval:
-                sent = self._send_environment_packet(cfg['channel'], test_mode=cfg['test_mode'])
+                sent = self._send_environment_packet(
+                    cfg['channel'], test_mode=cfg['test_mode'],
+                    pressure_key=cfg['pressure_key'],
+                    temperature_key=cfg['temperature_key'],
+                    humidity_key=cfg['humidity_key'],
+                )
                 if sent:
                     self._last_environment = now
                 elif not self._is_connected():
@@ -628,6 +801,30 @@ class Plugin(object):
                 else:
                     # No data available yet — advance timestamp to avoid retrying every second
                     self._last_environment = now
+
+            # --- Power telemetry ---
+            power_interval = cfg['power_interval']
+            power_keys_configured = any([
+                cfg['ch1_voltage_key'], cfg['ch1_current_key'],
+                cfg['ch2_voltage_key'], cfg['ch2_current_key'],
+            ])
+            power_active = cfg['test_mode'] or power_keys_configured
+            if power_interval > 0 and power_active and (now - self._last_power) >= power_interval:
+                sent = self._send_power_packet(
+                    cfg['channel'],
+                    test_mode=cfg['test_mode'],
+                    ch1_v_key=cfg['ch1_voltage_key'],
+                    ch1_a_key=cfg['ch1_current_key'],
+                    ch2_v_key=cfg['ch2_voltage_key'],
+                    ch2_a_key=cfg['ch2_current_key'],
+                )
+                if sent:
+                    self._last_power = now
+                elif not self._is_connected():
+                    pass  # send failed; reconnect next iteration
+                else:
+                    # No data available yet
+                    self._last_power = now
 
             # --- Alarm forwarding ---
             alarm_interval = cfg['alarm_interval']

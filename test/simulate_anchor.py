@@ -9,6 +9,9 @@ plugin can produce:
 
   • POSITION_APP         — lat/lon/SOG/heading/HDOP/sats/fix_quality
   • TELEMETRY_APP        — wind speed/direction/gust, pressure, anchor distance
+                           (EnvironmentMetrics)
+  • TELEMETRY_APP        — CH1 house battery voltage/current, CH2 starter voltage/current
+                           (PowerMetrics)
   • TEXT_MESSAGE_APP     — simulation start/end announcements
 
 Device:  /dev/ttyACM1   Channel: 0
@@ -181,6 +184,35 @@ def send_environment(iface, d: dict):
     iface.sendData(tel, portNum=portnums_pb2.PortNum.TELEMETRY_APP, channelIndex=CHANNEL)
 
 
+# Test-mode fixed power values (mirrors plugin._TEST_CH* constants)
+_TEST_CH1_V = 12.8   # V  house battery bank
+_TEST_CH1_A = 18.4   # A  load (nav instruments + fridge)
+_TEST_CH2_V = 12.6   # V  starter battery
+_TEST_CH2_A =  0.2   # A  trickle from combiner
+
+
+def send_power(iface, step: int):
+    """Send a PowerMetrics packet with small per-step variation."""
+    # Add gentle variation so the graph looks realistic
+    t = step / max(STEPS - 1, 1)
+    ch1_v = _TEST_CH1_V + 0.15 * math.sin(2 * math.pi * t * 1.3)        # ±0.15 V
+    ch1_a = _TEST_CH1_A + 2.0  * math.sin(2 * math.pi * t * 0.7 + 0.5)  # ±2 A (fridge cycling)
+    ch2_v = _TEST_CH2_V + 0.05 * math.sin(2 * math.pi * t * 2.1 + 1.0)  # ±0.05 V
+    ch2_a = _TEST_CH2_A + 0.05 * math.sin(2 * math.pi * t * 3.0)         # ±0.05 A
+
+    pm = telemetry_pb2.PowerMetrics()
+    pm.ch1_voltage = ch1_v
+    pm.ch1_current = ch1_a * 1000.0   # A → mA (protobuf convention)
+    pm.ch2_voltage = ch2_v
+    pm.ch2_current = ch2_a * 1000.0   # A → mA
+
+    tel = telemetry_pb2.Telemetry()
+    tel.time = int(time.time())
+    tel.power_metrics.CopyFrom(pm)
+    iface.sendData(tel, portNum=portnums_pb2.PortNum.TELEMETRY_APP, channelIndex=CHANNEL)
+    return ch1_v, ch1_a, ch2_v, ch2_a
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Main
 # ─────────────────────────────────────────────────────────────────────────────
@@ -228,7 +260,7 @@ def main():
         print(f"│  Anchor Δ  : {d['anchor_dist_m']:.1f} m  "
               f"({d['anchor_dist_m'] * 1000:.0f} mm sent in env packet)")
 
-        ok_pos = ok_env = False
+        ok_pos = ok_env = ok_pwr = False
         try:
             send_position(iface, d)
             ok_pos = True
@@ -243,9 +275,20 @@ def main():
         except Exception as exc:
             print(f"│  ✗ environment send failed: {exc}")
 
+        time.sleep(0.8)
+
+        try:
+            ch1_v, ch1_a, ch2_v, ch2_a = send_power(iface, step)
+            ok_pwr = True
+            print(f"│  Power     : CH1 {ch1_v:.2f} V / {ch1_a:.1f} A   "
+                  f"CH2 {ch2_v:.2f} V / {ch2_a:.2f} A")
+        except Exception as exc:
+            print(f"│  ✗ power send failed: {exc}")
+
         sent = []
         if ok_pos: sent.append("position")
         if ok_env: sent.append("environment")
+        if ok_pwr: sent.append("power")
         print(f"└─ Sent: {', '.join(sent) if sent else 'NOTHING (errors above)'}\n")
 
         # Sleep for the remainder of the 60 s interval
