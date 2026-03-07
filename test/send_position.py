@@ -29,7 +29,7 @@ from meshtastic import mesh_pb2, portnums_pb2
 
 KNOTS_TO_KMH = 1.852  # 1 knot = 1.852 km/h  (firmware uses km/h despite proto docs saying m/s)
 
-PORT = '/dev/ttyACM1'
+PORT = '/dev/ttyACM0'
 
 # Defaults
 lat         = 50.08100
