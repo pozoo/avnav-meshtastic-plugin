@@ -93,25 +93,25 @@ Send any of these as a plain text message on the configured channel to control t
 
 ### Position packet (`POSITION_APP`)
 
-| AvNav key | Fallback key | Meshtastic field | Conversion |
-|---|---|---|---|
-| `gps.lat` | — | `Position.latitude_i` | degrees × 1 × 10⁷ → integer |
-| `gps.lon` | — | `Position.longitude_i` | degrees × 1 × 10⁷ → integer |
-| `gps.speed` | — | `Position.ground_speed` | m/s × 3.6 → km/h (integer) |
-| `gps.headingTrue` | `gps.sail_instrument.HDT` | `Position.ground_track` | degrees × 100 (integer) |
-| `gps.signalk.navigation.gnss.horizontalDilution` | — | `Position.HDOP` | dimensionless × 100 (integer) |
-| `gps.satUsed` | — | `Position.sats_in_view` | integer |
-| *(derived from lat/lon presence)* | — | `Position.fix_quality` | 1 if fix, 0 otherwise |
+| AvNav key | Meshtastic field |
+|---|---|
+| `gps.lat` | `Position.latitude_i` |
+| `gps.lon` | `Position.longitude_i` |
+| `gps.speed` | `Position.ground_speed` |
+| `gps.headingTrue` / `gps.sail_instrument.HDT` | `Position.ground_track` |
+| `gps.signalk.navigation.gnss.horizontalDilution` | `Position.HDOP` |
+| `gps.satUsed` | `Position.sats_in_view` |
+| *(derived from lat/lon presence)* | `Position.fix_quality` |
 
 ### Environment telemetry packet (`TELEMETRY_APP / EnvironmentMetrics`)
 
-| AvNav key | Fallback key | Meshtastic field | Conversion |
-|---|---|---|---|
-| `gps.trueWindSpeed` | `gps.sail_instrument.TWS` | `EnvironmentMetrics.wind_speed` | knots × 0.5144 → m/s |
-| `gps.trueWindDirection` | `gps.sail_instrument.TWD` | `EnvironmentMetrics.wind_direction` | degrees (integer) |
-| `gps.sail_instrument.TWSMAX` | — | `EnvironmentMetrics.wind_gust` | knots × 0.5144 → m/s |
-| `gps.signalk.environment.outside.pressure` | — | `EnvironmentMetrics.barometric_pressure` | Pa ÷ 100 → hPa |
-| *(AVNRouter anchor watch leg, in-process)* | — | `EnvironmentMetrics.distance` | m × 1000 → mm |
+| AvNav key | Meshtastic field |
+|---|---|
+| `gps.trueWindSpeed` / `gps.sail_instrument.TWS` | `EnvironmentMetrics.wind_speed` |
+| `gps.trueWindDirection` / `gps.sail_instrument.TWD` | `EnvironmentMetrics.wind_direction` |
+| `gps.sail_instrument.TWSMAX` | `EnvironmentMetrics.wind_gust` |
+| `gps.signalk.environment.outside.pressure` | `EnvironmentMetrics.barometric_pressure` |
+| *(AVNRouter anchor watch leg, in-process)* | `EnvironmentMetrics.distance` |
 
 ## License
 
