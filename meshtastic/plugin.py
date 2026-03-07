@@ -118,7 +118,7 @@ class Plugin(object):
         {
             'name': 'pressure_key',
             'type': 'STRING',
-            'default': 'gps.signalk.environment.outside.pressure',
+            'default': 'gps.transducers.Barometer',
             'description': 'AvNav key for barometric pressure (Pa, Signal K convention). Leave empty to disable pressure transmission.',
         },
         {

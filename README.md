@@ -79,10 +79,10 @@ Also remember to change the channel to your private channel number!
 | `pos_interval` | `60` | Seconds between GPS position broadcasts (0 to disable) |
 | `alarm_interval` | `60` | Seconds between repeated sends of each active alarm (0 to disable) |
 | `env_interval` | `120` | Seconds between environment telemetry sends (0 to disable) |
+| `power_interval` | `300` | Seconds between power telemetry sends (CH1/CH2); 0 to disable |
 | `pressure_key` | `gps.signalk.environment.outside.pressure` | AvNav key for barometric pressure (Pa, Signal K). Leave empty to disable pressure transmission |
 | `temperature_key` | *(empty)* | AvNav key for outside air temperature (°C). Leave empty to disable |
 | `humidity_key` | *(empty)* | AvNav key for relative humidity (%). Leave empty to disable |
-| `power_interval` | `300` | Seconds between power telemetry sends (CH1/CH2); 0 to disable |
 | `ch1_voltage_key` | *(empty)* | AvNav key for CH1 battery voltage (V). Leave empty to disable CH1 |
 | `ch1_current_key` | *(empty)* | AvNav key for CH1 current (**A**). Leave empty to disable. The plugin converts A → mA before transmitting |
 | `ch2_voltage_key` | *(empty)* | AvNav key for CH2 battery voltage (V). Leave empty to disable CH2 |
