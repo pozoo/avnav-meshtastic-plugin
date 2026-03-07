@@ -13,7 +13,7 @@ This can be used e.g. to receive an alert when your anchor drags, even when you 
 - **Alarm forwarding** — detects active AvNav alarms and sends them as text messages over the mesh; repeats at a configurable interval until cleared
 - **Remote alarm control** — accepts `alarm silent`, `alarm active` and `alarm status` commands received over the mesh
 
-## Meshtastic built-in data visualization
+## Meshtastic app built-in data visualization
 
 <table>
 <tr valign="top">
