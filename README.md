@@ -133,10 +133,10 @@ Current values are expected in **amperes (A)** — the plugin multiplies by 1000
 
 | Config parameter | Meshtastic field | Unit |
 |---|---|---|
-| `ch1_voltage_key` | `PowerMetrics.ch1_voltage` | V |
-| `ch1_current_key` | `PowerMetrics.ch1_current` | A (transmitted as mA) |
-| `ch2_voltage_key` | `PowerMetrics.ch2_voltage` | V |
-| `ch2_current_key` | `PowerMetrics.ch2_current` | A (transmitted as mA) |
+| `ch1_voltage_key` (configurable, empty = disabled) | `PowerMetrics.ch1_voltage` | V |
+| `ch1_current_key` (configurable, empty = disabled) | `PowerMetrics.ch1_current` | A (transmitted as mA) |
+| `ch2_voltage_key` (configurable, empty = disabled) | `PowerMetrics.ch2_voltage` | V |
+| `ch2_current_key` (configurable, empty = disabled) | `PowerMetrics.ch2_current` | A (transmitted as mA) |
 
 ## License
 
