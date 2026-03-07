@@ -8,20 +8,19 @@ This can be used e.g. to receive an alert when your anchor drags, even when you 
 ## Features
 
 - **GPS position packets** — broadcasts latitude, longitude, SOG, HDOP, satellite count and fix quality as native Meshtastic `POSITION_APP` protobuf packets, showing up as node position in the Meshtastic app on the map and position log
-- **Environmental telemetry** — sends true wind speed/direction, gusts, barometric pressure, temperature, humidity and anchor watch distance as `TELEMETRY_APP / EnvironmentMetrics` packets, diplayed as environment data in the Meshtastic app
+- **Environmental telemetry** — sends true wind speed/direction, gusts, barometric pressure, temperature, humidity and anchor watch distance as `TELEMETRY_APP / EnvironmentMetrics` packets, displayed as environment data in the Meshtastic app
 - **Power telemetry** — sends battery voltage and current for up to two channels (house bank, starter battery, etc.) as `TELEMETRY_APP / PowerMetrics` packets; each channel is independently configurable via an AvNav data key
 - **Alarm forwarding** — detects active AvNav alarms and sends them as text messages over the mesh; repeats at a configurable interval until cleared
 - **Remote alarm control** — accepts `alarm silent`, `alarm active` and `alarm status` commands received over the mesh
 
-## Meshtastic screenshots
+## Meshtastic built-in data visualization
 
-Visualization of the data in the Meshtastic apps:
 <table>
 <tr valign="top">
-<td align="left"><img src="images/IMG_6737.jpg" width="300" /><br/><sub>Meshtastic dashboard</sub></td>
+<td align="left"><img src="images/IMG_6737.jpg" width="250" /><br/><sub>Dashboard</sub></td>
 <td align="left">
-<img src="images/IMG_6736.jpg" width="300" /><br/><sub>Meshtastic wind graph</sub><br/><br/>
-<img src="images/IMG_6735.jpg" width="300" /><br/><sub>Meshtastic boat position</sub>
+<img src="images/IMG_6736.jpg" width="250" /><br/><sub>Wind graph (speed/direction)</sub><br/><br/>
+<img src="images/IMG_6735.jpg" width="250" /><br/><sub>Boat position on map</sub>
 </td>
 </tr>
 </table>
@@ -30,7 +29,7 @@ Visualization of the data in the Meshtastic apps:
 
 - Raspberry Pi (or another computer) running AvNav
 - A Meshtastic-compatible device connected via USB serial to your AvNav computer
-- Another Meshtastic device that you carry with you connected via bluetooth to your phone. If possilbe this should have a buzzer or vibration unit for alarms. 
+- Another Meshtastic device that you carry with you connected via Bluetooth to your phone. If possible, this should have a buzzer or vibration unit for alarms. 
 
 Popular devices include the Heltec V3/V4 and the SenseCap T1000-E, the latter being IP65-rated and ideal for carrying with you.
 
@@ -40,10 +39,10 @@ Popular devices include the Heltec V3/V4 and the SenseCap T1000-E, the latter be
 - Install Meshtastic app on your phone.
 - Connect the device that shall connect via USB to your Raspberry via Bluetooth to your phone for configuration with the Meshtastic app
 - configure the device
-    - channel 0 is public. If you transmit here, everybody in your neighborhoud can read it and also see your position. They can also message to your device. 
+    - channel 0 is public. If you transmit here, everybody in your neighbourhood can read it and also see your position. They can also message to your device. 
     - Therefore you should configure a private encrypted channel, that only your devices join. You should also enable full position precision here in the channel settings.
     - In the AvNav plugin configuration, you can select this channel number for communication later.
-- Disconnect the first device from your phones meshtastic app, connect the second one and repeat the configuration. Both devices must join the same private channel.
+- Disconnect the first device from your phone's Meshtastic app, connect the second one and repeat the configuration. Both devices must join the same private channel.
     - If the device you connect to your phone has a buzzer, go to Settings -> Module Configuration -> External Notifications and turn on alert when receiving a bell. Alarm messages are sent with a bell character. 
 
 ## Installation
