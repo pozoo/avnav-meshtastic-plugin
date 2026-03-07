@@ -62,9 +62,9 @@ AVNAV_HDT_ALT   = 'gps.sail_instrument.HDT'                         # heading, s
 AVNAV_HDOP      = 'gps.signalk.navigation.gnss.horizontalDilution'  # dimensionless ratio
 AVNAV_SATS      = 'gps.satUsed'                                     # satellites used (integer)
 
-AVNAV_WIND_SPD      = 'gps.trueWindSpeed'                           # true wind speed in knots; plugin converts ×0.5144 → m/s
-AVNAV_WIND_SPD_ALT  = 'gps.sail_instrument.TWS'                     # alternate key tried if AVNAV_WIND_SPD returns nothing
-AVNAV_WIND_GUST     = 'gps.sail_instrument.TWSMAX'                  # TWS in knots; plugin converts ×0.5144 → m/s
+AVNAV_WIND_SPD      = 'gps.trueWindSpeed'                           # true wind speed in m/s (AvNav converts NMEA knots to m/s on parse)
+AVNAV_WIND_SPD_ALT  = 'gps.sail_instrument.TWS'                     # alternate key tried if AVNAV_WIND_SPD returns nothing; also m/s
+AVNAV_WIND_GUST     = 'gps.sail_instrument.TWSMAX'                  # max TWS in m/s
 AVNAV_WIND_DIR      = 'gps.trueWindDirection'                       # true wind direction, degrees
 AVNAV_WIND_DIR_ALT  = 'gps.sail_instrument.TWD'                     # alternate key tried if AVNAV_WIND_DIR returns nothing 
 AVNAV_PRESSURE      = 'gps.signalk.environment.outside.pressure'    # Signal K stores pressure in Pa; plugin converts ÷100 → hPa
@@ -461,13 +461,12 @@ class Plugin(object):
                 wind_ms, wind_dir, gust_ms, pressure, anchor_dist_mm
             )
         else:
-            # Wind speed: AvNav gives knots; EnvironmentMetrics expects m/s
-            KNOTS_TO_MS = 0.5144
-            wind_kt_raw = self._get_value_with_fallback(AVNAV_WIND_SPD, AVNAV_WIND_SPD_ALT)
-            wind_ms = float(wind_kt_raw) * KNOTS_TO_MS if wind_kt_raw is not None else None
+            # Wind speed: AvNav stores in m/s (NMEA knots already converted by AvNav parser)
+            wind_ms_raw = self._get_value_with_fallback(AVNAV_WIND_SPD, AVNAV_WIND_SPD_ALT)
+            wind_ms = float(wind_ms_raw) if wind_ms_raw is not None else None
 
-            gust_kt_raw = self.api.getSingleValue(AVNAV_WIND_GUST)
-            gust_ms = float(gust_kt_raw) * KNOTS_TO_MS if gust_kt_raw is not None else None
+            gust_ms_raw = self.api.getSingleValue(AVNAV_WIND_GUST)
+            gust_ms = float(gust_ms_raw) if gust_ms_raw is not None else None
 
             dir_raw  = self._get_value_with_fallback(AVNAV_WIND_DIR, AVNAV_WIND_DIR_ALT)
             wind_dir = int(float(dir_raw)) if dir_raw is not None else None
