@@ -18,8 +18,8 @@ This can be used e.g. to receive an alert when your anchor drags, even when you 
 Visualization of the data in the Meshtastic apps:
 <table>
 <tr valign="top">
-<td align="center"><img src="images/IMG_6737.jpg" width="300" /><br/><sub>Meshtastic dashboard</sub></td>
-<td align="center">
+<td align="left"><img src="images/IMG_6737.jpg" width="300" /><br/><sub>Meshtastic dashboard</sub></td>
+<td align="left">
 <img src="images/IMG_6736.jpg" width="300" /><br/><sub>Meshtastic wind graph</sub><br/><br/>
 <img src="images/IMG_6735.jpg" width="300" /><br/><sub>Meshtastic boat position</sub>
 </td>
