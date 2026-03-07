@@ -64,10 +64,10 @@ AVNAV_SATS      = 'gps.satUsed'                                     # satellites
 
 AVNAV_WIND_SPD      = 'gps.trueWindSpeed'                           # true wind speed in knots; plugin converts ×0.5144 → m/s
 AVNAV_WIND_SPD_ALT  = 'gps.sail_instrument.TWS'                     # alternate key tried if AVNAV_WIND_SPD returns nothing
+AVNAV_WIND_GUST     = 'gps.sail_instrument.TWSMAX'                  # TWS in knots; plugin converts ×0.5144 → m/s
 AVNAV_WIND_DIR      = 'gps.trueWindDirection'                       # true wind direction, degrees
 AVNAV_WIND_DIR_ALT  = 'gps.sail_instrument.TWD'                     # alternate key tried if AVNAV_WIND_DIR returns nothing 
-AVNAV_WIND_GUST = 'environment.wind.gustTrue'                       # TODO track max gusts in sailinstrument and report here
-AVNAV_PRESSURE  = 'gps.signalk.environment.outside.pressure'        # Signal K stores pressure in Pa; plugin converts ÷100 → hPa
+AVNAV_PRESSURE      = 'gps.signalk.environment.outside.pressure'    # Signal K stores pressure in Pa; plugin converts ÷100 → hPa
 
 # anchor.distance / anchor.direction / anchor.watchDistance are JavaScript-only store keys
 # (computed in the browser by navdata.js from leg.from + current GPS position).
