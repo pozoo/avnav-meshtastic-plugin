@@ -15,8 +15,10 @@ This can be used e.g. to receive an alert when your anchor drags, even when you 
 ## Hardware
 
 - Raspberry Pi (or another computer) running AvNav
-- A Meshtastic-compatible device connected via USB serial
-- Another Meshtastic device that you carry with you connected via bluetooth to your phone. If possilbe this should have a buzzer or vibration unit for alarms.
+- A Meshtastic-compatible device connected via USB serial to your AvNav computer
+- Another Meshtastic device that you carry with you connected via bluetooth to your phone. If possilbe this should have a buzzer or vibration unit for alarms. 
+
+Popular devices include the Heltec V3/V4 and the SenseCap T1000-E, the latter being IP65-rated and ideal for carrying with you.
 
 ## Preparing the Meshtastic devices
 
