@@ -5,6 +5,8 @@ It periodically broadcasts GPS position and environmental telemetry (wind speed 
 
 This can be used e.g. to receive an alert when your anchor drags, even when you are not on the boat and don't have a mobile phone connection.
 
+Of course the entire risk of using this plugin is with you (see [GNU General Public License v3.0](LICENSE.md)).
+
 ## Features
 
 - **GPS position packets** — broadcasts latitude, longitude, SOG, HDOP, satellite count and fix quality as native Meshtastic `POSITION_APP` protobuf packets, showing up as node position in the Meshtastic app on the map and position log
