@@ -155,55 +155,13 @@ jobs:
           if-no-files-found: error
 
   # ------------------------------------------------------------------ #
-  # Source zip — a clean archive of every committed file at this ref.   #
-  # Useful for Option B (manual) installation described in README.md.   #
-  # ------------------------------------------------------------------ #
-  zip-source:
-    name: Create source zip
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      # Derive a human-friendly label: the tag name (e.g. v1.0.0) when
-      # triggered by a push, otherwise dev.<short-sha>.
-      - name: Determine archive name
-        id: archivename
-        run: |
-          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            LABEL="${GITHUB_REF#refs/tags/}"
-          else
-            LABEL="dev.${GITHUB_SHA::8}"
-          fi
-          ZIP_NAME="avnav-meshtastic-plugin-${LABEL}"
-          echo "label=${LABEL}" >> "$GITHUB_OUTPUT"
-          echo "zip_name=${ZIP_NAME}" >> "$GITHUB_OUTPUT"
-
-      - name: Create source zip
-        run: |
-          ZIP_NAME="${{ steps.archivename.outputs.zip_name }}"
-          # git archive produces a clean zip of only committed files —
-          # no build artefacts, no .git metadata.
-          git archive --format=zip --prefix="${ZIP_NAME}/" HEAD -o "${ZIP_NAME}.zip"
-          echo "Created ${ZIP_NAME}.zip ($(du -sh ${ZIP_NAME}.zip | cut -f1))"
-
-      - name: Upload source zip artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.archivename.outputs.zip_name }}
-          path: ${{ steps.archivename.outputs.zip_name }}.zip
-          retention-days: 90
-          if-no-files-found: error
-
-  # ------------------------------------------------------------------ #
   # Publish GitHub Release — only when triggered by a tag push.        #
   # Manual workflow_dispatch runs build artefacts only; no release.    #
   # ------------------------------------------------------------------ #
   publish-release:
     name: Publish GitHub Release
     runs-on: ubuntu-latest
-    needs: [build-deb, zip-source]
+    needs: [build-deb]
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write   # required to create a release and upload assets
@@ -222,7 +180,7 @@ jobs:
         run: find release-assets -type f | sort
 
       # Create (or update) the GitHub Release for this tag and attach
-      # all .deb files and the source zip as release assets.
+      # all .deb files as release assets.
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -230,6 +188,4 @@ jobs:
           name: ${{ github.ref_name }}
           draft: false
           prerelease: false
-          files: |
-            release-assets/*.deb
-            release-assets/*.zip
+          files: release-assets/*.deb
