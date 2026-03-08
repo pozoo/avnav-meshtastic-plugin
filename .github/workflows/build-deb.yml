@@ -1,9 +1,13 @@
 name: Build .deb packages for Raspbian/Debian Bookworm
 
-# Triggered manually only — go to Actions → this workflow → Run workflow.
-# Optionally supply a version string (e.g. 1.0.0); leaving it empty produces
-# a dev snapshot (0.0.0~dev.<short-sha>).
+# Triggered automatically on version tags (v*) or manually via the Actions UI.
+# When triggered by a tag push the version is derived from the tag (e.g.
+# tag v1.2.3 → package version 1.2.3-1).  A manual run lets you supply an
+# explicit version or leave it empty for a dev snapshot.
 on:
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
       version:
@@ -49,7 +53,10 @@ jobs:
       - name: Set package version
         id: version
         run: |
-          if [[ -n "${{ inputs.version }}" ]]; then
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            TAG="${GITHUB_REF#refs/tags/v}"
+            DEB_VERSION="${TAG}-1"
+          elif [[ -n "${{ inputs.version }}" ]]; then
             DEB_VERSION="${{ inputs.version }}-1"
           else
             SHORT_SHA="${GITHUB_SHA::8}"
@@ -145,4 +152,46 @@ jobs:
             output/*.deb
             !output/*dbgsym*.deb
           retention-days: 30
+          if-no-files-found: error
+
+  # ------------------------------------------------------------------ #
+  # Source zip — a clean archive of every committed file at this ref.   #
+  # Useful for Option B (manual) installation described in README.md.   #
+  # ------------------------------------------------------------------ #
+  zip-source:
+    name: Create source zip
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Derive a human-friendly label: the tag name (e.g. v1.0.0) when
+      # triggered by a push, otherwise dev.<short-sha>.
+      - name: Determine archive name
+        id: archivename
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            LABEL="${GITHUB_REF#refs/tags/}"
+          else
+            LABEL="dev.${GITHUB_SHA::8}"
+          fi
+          ZIP_NAME="avnav-meshtastic-plugin-${LABEL}"
+          echo "label=${LABEL}" >> "$GITHUB_OUTPUT"
+          echo "zip_name=${ZIP_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Create source zip
+        run: |
+          ZIP_NAME="${{ steps.archivename.outputs.zip_name }}"
+          # git archive produces a clean zip of only committed files —
+          # no build artefacts, no .git metadata.
+          git archive --format=zip --prefix="${ZIP_NAME}/" HEAD -o "${ZIP_NAME}.zip"
+          echo "Created ${ZIP_NAME}.zip ($(du -sh ${ZIP_NAME}.zip | cut -f1))"
+
+      - name: Upload source zip artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.archivename.outputs.zip_name }}
+          path: ${{ steps.archivename.outputs.zip_name }}.zip
+          retention-days: 90
           if-no-files-found: error
